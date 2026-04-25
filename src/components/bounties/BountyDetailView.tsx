@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -47,7 +47,7 @@ import { POIDH_ABI } from "@/lib/poidh/abi";
 import { CHAIN_NAMES, getExplorerUrl, getTxUrl, POIDH_CONTRACTS } from "@/lib/poidh/config";
 import { getThirdwebClient } from "@/lib/thirdweb";
 import { THIRDWEB_AA_CONFIG, THIRDWEB_WALLETS } from "@/lib/thirdweb-wallets";
-import type { PoidhBounty } from "@/types/poidh";
+import type { PoidhBounty, PoidhClaim } from "@/types/poidh";
 
 const VIDEO_EXTENSIONS = /\.(mov|mp4|webm|ogg|m4v)(\?.*)?$/i;
 const IPFS_GATEWAYS = [
@@ -183,6 +183,40 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
   });
 
   const bounty = data?.bounty;
+
+  const queryClient = useQueryClient();
+  const handleClaimSuccess = useCallback(
+    ({ name, description, url }: { name: string; description: string; url: string }) => {
+      queryClient.setQueryData<{ bounty: PoidhBounty }>(
+        ["poidh-bounty", chainId, bountyId],
+        (old) => {
+          if (!old) return old;
+          const optimistic: PoidhClaim = {
+            id: Date.now(),
+            bountyId: old.bounty.id,
+            name,
+            description,
+            issuer: address ?? "",
+            createdAt: Math.floor(Date.now() / 1000),
+            accepted: false,
+            url: url || null,
+          };
+          return {
+            bounty: {
+              ...old.bounty,
+              claims: [...(old.bounty.claims ?? []), optimistic],
+              hasClaims: true,
+            },
+          };
+        },
+      );
+      setTimeout(
+        () => queryClient.invalidateQueries({ queryKey: ["poidh-bounty", chainId, bountyId] }),
+        15_000,
+      );
+    },
+    [queryClient, chainId, bountyId, address],
+  );
 
   const { ethPrice } = useEthPrice();
   const [joinAmount, setJoinAmount] = useState("0.001");
@@ -392,7 +426,7 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
                     Be the first to complete this challenge. Film your proof and submit it on-chain.
                   </p>
                 </div>
-                <ClaimBountyModal bounty={bounty}>
+                <ClaimBountyModal bounty={bounty} onSuccess={handleClaimSuccess}>
                   <Button size="lg" className="mt-2">
                     Join
                   </Button>
@@ -794,7 +828,7 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ClaimBountyModal bounty={bounty}>
+                <ClaimBountyModal bounty={bounty} onSuccess={handleClaimSuccess}>
                   <Button size="lg" className="w-full">
                     Join
                   </Button>
