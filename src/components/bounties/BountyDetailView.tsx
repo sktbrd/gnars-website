@@ -191,8 +191,10 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
         ["poidh-bounty", chainId, bountyId],
         (old) => {
           if (!old) return old;
+          const tmpId = Date.now();
           const optimistic: PoidhClaim = {
-            id: Date.now(),
+            id: tmpId,
+            onChainId: tmpId,
             bountyId: old.bounty.id,
             name,
             description,
@@ -600,7 +602,7 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
                             size="sm"
                             variant="default"
                             disabled={acceptClaimHook.isPending}
-                            onClick={() => acceptClaimHook.accept(bounty.onChainId, claim.id)}
+                            onClick={() => acceptClaimHook.accept(bounty.onChainId, claim.onChainId)}
                           >
                             {acceptClaimHook.isPending ? (
                               <>
@@ -651,7 +653,7 @@ export function BountyDetailView({ initialBounty, chainId, bountyId }: BountyDet
                             variant="outline"
                             className="w-full"
                             disabled={submitForVoteHook.isPending}
-                            onClick={() => submitForVoteHook.submit(bounty.onChainId, claim.id)}
+                            onClick={() => submitForVoteHook.submit(bounty.onChainId, claim.onChainId)}
                           >
                             {submitForVoteHook.isPending ? (
                               <>
